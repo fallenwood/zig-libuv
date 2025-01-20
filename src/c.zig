@@ -14,6 +14,7 @@ pub usingnamespace switch (builtin.zig_backend) {
     else => switch (builtin.os.tag) {
         .macos => @import("cimport_macos.zig"),
         .linux => @import("cimport_linux.zig"),
+        .windows => @import("cimport_windows.zig"),
         else => @compileError("unsupported OS for now, see this line"),
     },
 };
