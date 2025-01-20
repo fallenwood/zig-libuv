@@ -65,9 +65,9 @@ pub fn buildLibuv(b: *std.Build,
         lib.linkSystemLibrary("userenv");
         lib.linkSystemLibrary("ws2_32");
     }
-    // if (target.isLinux()) {
-    //     lib.linkSystemLibrary("pthread");
-    // }
+    if (isLinux(target)) {
+        lib.linkSystemLibrary("pthread");
+    }
     lib.linkLibC();
 
     // Compilation
