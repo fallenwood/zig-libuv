@@ -86,26 +86,111 @@ pub const Errno = enum(i32) {
     ESOCKTNOSUPPORT = c.UV_ESOCKTNOSUPPORT,
 };
 
+/// Failed with zig 0.14
 /// Errors that libuv can produce.
 ///
 /// http://docs.libuv.org/en/v1.x/errors.html
-pub const Error = blk: {
-    // We produce these from the Errno enum so that we can easily
-    // keep it synced.
-    const info = @typeInfo(Errno).Enum;
-    var errors: [info.fields.len]std.builtin.Type.Error = undefined;
-    for (info.fields) |field, i| {
-        errors[i] = .{ .name = field.name };
-    }
+// pub const Error = blk: {
+//     // We produce these from the Errno enum so that we can easily
+//     // keep it synced.
+//     const info = @typeInfo(Errno).@"enum";
+//     var errors: [info.fields.len]std.builtin.Type.Error = undefined;
+//     for (0.., info.fields) |i, field| {
+//         errors[i] = .{ .name = field.name };
+//     }
+//     break :blk @Type(.{ .ErrorSet = &errors });
+// };
 
-    break :blk @Type(.{ .ErrorSet = &errors });
+pub const Error = error {
+    E2BIG,
+    EACCES,
+    EADDRINUSE,
+    EADDRNOTAVAIL,
+    EAFNOSUPPORT,
+    EAGAIN,
+    EAI_ADDRFAMILY,
+    EAI_AGAIN,
+    EAI_BADFLAGS,
+    EAI_BADHINTS,
+    EAI_CANCELED,
+    EAI_FAIL,
+    EAI_FAMILY,
+    EAI_MEMORY,
+    EAI_NODATA,
+    EAI_NONAME,
+    EAI_OVERFLOW,
+    EAI_PROTOCOL,
+    EAI_SERVICE,
+    EAI_SOCKTYPE,
+    EALREADY,
+    EBADF,
+    EBUSY,
+    ECANCELED,
+    ECHARSET,
+    ECONNABORTED,
+    ECONNREFUSED,
+    ECONNRESET,
+    EDESTADDRREQ,
+    EEXIST,
+    EFAULT,
+    EFBIG,
+    EHOSTUNREACH,
+    EINTR,
+    EINVAL,
+    EIO,
+    EISCONN,
+    EISDIR,
+    ELOOP,
+    EMFILE,
+    EMSGSIZE,
+    ENAMETOOLONG,
+    ENETDOWN,
+    ENETUNREACH,
+    ENFILE,
+    ENOBUFS,
+    ENODEV,
+    ENOENT,
+    ENOMEM,
+    ENONET,
+    ENOPROTOOPT,
+    ENOSPC,
+    ENOSYS,
+    ENOTCONN,
+    ENOTDIR,
+    ENOTEMPTY,
+    ENOTSOCK,
+    ENOTSUP,
+    EPERM,
+    EPIPE,
+    EPROTO,
+    EPROTONOSUPPORT,
+    EPROTOTYPE,
+    ERANGE,
+    EROFS,
+    ESHUTDOWN,
+    ESPIPE,
+    ESRCH,
+    ETIMEDOUT,
+    ETXTBSY,
+    EXDEV,
+    UNKNOWN,
+    EOF,
+    ENXIO,
+    EHOSTDOWN,
+    EREMOTEIO,
+    ENOTTY,
+    EFTYPE,
+    EILSEQ,
+    ESOCKTNOSUPPORT,
 };
 
 /// Convert the result of a libuv API call to an error (or no error).
 pub fn convertError(r: i32) !void {
     if (r >= 0) return;
 
-    return switch (@intToEnum(Errno, r)) {
+    const err = try std.meta.intToEnum(Errno, r);
+
+    return switch (err) {
         .E2BIG => Error.E2BIG,
         .EACCES => Error.EACCES,
         .EADDRINUSE => Error.EADDRINUSE,

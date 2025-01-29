@@ -1,17 +1,8 @@
 const std = @import("std");
 
-/// Directories with our includes.
 const root = "./vendor/libuv/";
 const include_path = root ++ "include";
-
-// pub const pkg = std.build.Pkg{
-//     .name = "libuv",
-//     .source = .{ .path = thisDir() ++ "/src/main.zig" },
-// };
-
-// fn thisDir() []const u8 {
-//     return std.fs.path.dirname(@src().file) orelse ".";
-// }
+const src_path = root ++ "src";
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
@@ -29,7 +20,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    example_hello_exe_module.addImport("hello", libuv_module);
+    example_hello_exe_module.addImport("uv", libuv_module);
 
     const lib = try buildLibuv(b, target, optimize);
 
@@ -39,6 +30,8 @@ pub fn build(b: *std.Build) !void {
         .name = "example_hello",
         .root_module = example_hello_exe_module,
     });
+
+    exe.linkLibrary(lib);
 
     b.installArtifact(exe);
 
@@ -97,22 +90,24 @@ pub fn build(b: *std.Build) !void {
     // run_step.dependOn(&run_cmd.step);
 // }
 
-pub fn link(
-    b: *std.Build,
-    step: *std.Build.Step.Compile,
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-) !*std.Build.Step.Compile {
-    const libuv = try buildLibuv(b, target, optimize);
-    step.linkLibrary(libuv);
-    step.addIncludePath(.{ .cwd_relative = include_path, });
-    return libuv;
-}
+// pub fn link(
+//     b: *std.Build,
+//     step: *std.Build.Step.Compile,
+//     target: std.Build.ResolvedTarget,
+//     optimize: std.builtin.OptimizeMode,
+// ) !*std.Build.Step.Compile {
+//     const libuv = try buildLibuv(b, target, optimize);
+//     step.linkLibrary(libuv);
+//     step.addIncludePath(.{ .cwd_relative = include_path, });
+//     return libuv;
+// }
 
 pub fn buildLibuv(b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
 ) !*std.Build.Step.Compile {
+
+
     const lib = b.addStaticLibrary(.{
         .name = "uv",
         .target = target,
@@ -121,7 +116,7 @@ pub fn buildLibuv(b: *std.Build,
 
     // Include dirs
     lib.addIncludePath(.{ .cwd_relative = include_path, });
-    lib.addIncludePath(.{ .cwd_relative = root ++ "src", });
+    lib.addIncludePath(.{ .cwd_relative = src_path, });
 
     // Links
     if (target.query.os_tag == .windows) {
@@ -142,6 +137,11 @@ pub fn buildLibuv(b: *std.Build,
     defer flags.deinit();
     // try flags.appendSlice(&.{});
 
+    std.debug.print("target.os_tag: {any}\n", .{target.query.os_tag});
+    std.debug.print("isWindows: {any}\n", .{isWindows(target)});
+    std.debug.print("isLinux: {any}\n", .{isLinux(target)});
+    std.debug.print("isDarwin: {any}\n", .{isDarwin(target)});
+
     if (!isWindows(target)) {
         try flags.appendSlice(&.{
             "-D_FILE_OFFSET_BITS=64",
@@ -153,6 +153,7 @@ pub fn buildLibuv(b: *std.Build,
         try flags.appendSlice(&.{
             "-D_GNU_SOURCE",
             "-D_POSIX_C_SOURCE=200112",
+            "-std=gnu90",
         });
     }
 
@@ -172,6 +173,7 @@ pub fn buildLibuv(b: *std.Build,
             root ++ "src/random.c",
             root ++ "src/strscpy.c",
             root ++ "src/strtok.c",
+            root ++ "src/thread-common.c",
             root ++ "src/threadpool.c",
             root ++ "src/timer.c",
             root ++ "src/uv-common.c",

@@ -42,8 +42,11 @@ pub fn initData(
 
     const CWrapper = struct {
         pub fn wrapper(arg: ?*anyopaque) callconv(.C) void {
+            // const align1 = @alignOf(dataInfo.Pointer.child);
+            // const ptr1 = 
+            const data1: *Data = @ptrCast(arg);
             @call(.always_inline, callback, .{
-                @ptrCast(Data, @alignCast(@alignOf(dataInfo.Pointer.child), arg)),
+                data1,
             });
         }
     };

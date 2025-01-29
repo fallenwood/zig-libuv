@@ -22,14 +22,14 @@ pub fn Stream(comptime T: type) type {
 
         /// Returns 1 if the stream is readable, 0 otherwise.
         pub fn isReadable(self: T) !bool {
-            const res = c.uv_is_readable(@ptrCast(*c.uv_stream_t, self.handle));
+            const res = c.uv_is_readable(@ptrCast(self.handle));
             try errors.convertError(res);
             return res > 0;
         }
 
         /// Returns 1 if the stream is writable, 0 otherwise.
         pub fn isWritable(self: T) !bool {
-            const res = c.uv_is_writable(@ptrCast(*c.uv_stream_t, self.handle));
+            const res = c.uv_is_writable(@ptrCast(self.handle));
             try errors.convertError(res);
             return res > 0;
         }
@@ -44,9 +44,10 @@ pub fn Stream(comptime T: type) type {
             const Wrapper = struct {
                 fn callback(cbreq: [*c]c.uv_write_t, status: c_int) callconv(.C) void {
                     var newreq: WriteReq = .{ .req = cbreq };
+                    const istatus:i32 = @intCast(status);
                     @call(.always_inline, cb, .{
                         &newreq,
-                        @intCast(i32, status),
+                        istatus,
                     });
                 }
             };
@@ -56,9 +57,9 @@ pub fn Stream(comptime T: type) type {
             // unit test below that keeps this true.
             try errors.convertError(c.uv_write(
                 req.req,
-                @ptrCast(*c.uv_stream_t, self.handle),
-                @ptrCast([*c]const c.uv_buf_t, bufs.ptr),
-                @intCast(c_uint, bufs.len),
+                @ptrCast(self.handle),
+                @ptrCast(bufs.ptr),
+                @intCast(bufs.len),
                 Wrapper.callback,
             ));
         }
@@ -67,12 +68,12 @@ pub fn Stream(comptime T: type) type {
         /// be completed immediately.
         pub fn tryWrite(self: T, bufs: []const []const u8) !usize {
             const res = c.uv_try_write(
-                @ptrCast(*c.uv_stream_t, self.handle),
-                @ptrCast([*c]const c.uv_buf_t, bufs.ptr),
-                @intCast(c_uint, bufs.len),
+                @ptrCast(self.handle),
+                @ptrCast(bufs.ptr),
+                @intCast(bufs.len),
             );
             try errors.convertError(res);
-            return @intCast(usize, res);
+            return @intCast(res);
         }
 
         /// Read data from an incoming stream. The uv_read_cb callback will
@@ -89,7 +90,7 @@ pub fn Stream(comptime T: type) type {
                     cbsize: usize,
                     buf: [*c]c.uv_buf_t,
                 ) callconv(.C) void {
-                    var param: T = .{ .handle = @ptrCast(HandleType, cbhandle) };
+                    var param: T = .{ .handle = @ptrCast(cbhandle) };
                     const result = @call(.always_inline, alloc_cb, .{
                         &param,
                         cbsize,
@@ -110,7 +111,7 @@ pub fn Stream(comptime T: type) type {
                     cbnread: isize,
                     cbbuf: [*c]const c.uv_buf_t,
                 ) callconv(.C) void {
-                    var param: T = .{ .handle = @ptrCast(HandleType, cbhandle) };
+                    var param: T = .{ .handle = @ptrCast(cbhandle) };
                     @call(.always_inline, read_cb, .{
                         &param,
                         cbnread,
@@ -120,7 +121,7 @@ pub fn Stream(comptime T: type) type {
             };
 
             try errors.convertError(c.uv_read_start(
-                @ptrCast(*c.uv_stream_t, self.handle),
+                @ptrCast(self.handle),
                 Wrapper.alloc,
                 Wrapper.read,
             ));
@@ -133,7 +134,7 @@ pub fn Stream(comptime T: type) type {
         /// stream.
         pub fn readStop(self: T) void {
             // Docs say we can ignore this result.
-            _ = c.uv_read_stop(@ptrCast(*c.uv_stream_t, self.handle));
+            _ = c.uv_read_stop(@ptrCast(self.handle));
         }
     };
 }
@@ -151,7 +152,7 @@ pub const WriteReq = struct {
     req: *T,
 
     pub fn init(alloc: Allocator) !WriteReq {
-        var req = try alloc.create(c.uv_write_t);
+        const req = try alloc.create(c.uv_write_t);
         errdefer alloc.destroy(req);
         return WriteReq{ .req = req };
     }
@@ -164,11 +165,11 @@ pub const WriteReq = struct {
     /// Pointer to the stream where this write request is running.
     /// T should be a high-level handle type such as "Pipe".
     pub fn handle(self: WriteReq, comptime HT: type) ?HT {
-        const tInfo = @typeInfo(HT).Struct;
-        const HandleType = tInfo.fields[0].type;
+        // const tInfo = @typeInfo(HT).Struct;
+        // const HandleType = tInfo.fields[0].type;
 
         return if (self.req.handle) |ptr|
-            return HT{ .handle = @ptrCast(HandleType, ptr) }
+            return HT{ .handle = @ptrCast(ptr) }
         else
             null;
     }
