@@ -14,24 +14,61 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
+    const lib = try build_libuv(b, target, optimize);
+
+    b.installArtifact(lib);
+
+    _ = try build_exe(b, "hello", target, optimize, libuv_module, lib);
+
+    const lib_unit_tests = b.addTest(.{
+        .root_module = libuv_module,
+    });
+
+    const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
+
+    const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_lib_unit_tests.step);
+}
+
+fn build_exe(
+    b: *std.Build,
+    name: []const u8,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    libuv_module: *std.Build.Module,
+    libuv: *std.Build.Step.Compile)
+    !*std.Build.Step.Run {
+    var path_arr = std.ArrayList(u8).init(b.allocator);
+    defer path_arr.deinit();
+
+    try path_arr.appendSlice("src/examples/");
+    try path_arr.appendSlice(name);
+    try path_arr.appendSlice(".zig");
+
+    const path = path_arr.items;
+    
     const example_hello_exe_module = b.createModule(.{
-        .root_source_file = b.path("src/examples/hello.zig"),
+        .root_source_file = b.path(path),
         .target = target,
         .optimize = optimize,
     });
 
     example_hello_exe_module.addImport("uv", libuv_module);
 
-    const lib = try buildLibuv(b, target, optimize);
+    var ext_name_arr = std.ArrayList(u8).init(b.allocator);
+    defer ext_name_arr.deinit();
 
-    b.installArtifact(lib);
+    try ext_name_arr.appendSlice("example_");
+    try ext_name_arr.appendSlice(name);
+
+    const exe_name = ext_name_arr.items;
 
     const exe = b.addExecutable(.{
-        .name = "example_hello",
+        .name = exe_name,
         .root_module = example_hello_exe_module,
     });
 
-    exe.linkLibrary(lib);
+    exe.linkLibrary(libuv);
 
     b.installArtifact(exe);
 
@@ -44,65 +81,13 @@ pub fn build(b: *std.Build) !void {
     }
 
     const run_step = b.step("run", "Run the app");
+
     run_step.dependOn(&run_cmd.step);
 
-    const lib_unit_tests = b.addTest(.{
-        .root_module = libuv_module,
-    });
-
-    const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
-
-    const exe_unit_tests = b.addTest(.{
-        .root_module = example_hello_exe_module,
-    });
-
-    const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
-
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_lib_unit_tests.step);
-    test_step.dependOn(&run_exe_unit_tests.step);
+    return run_cmd;
 }
 
-    // const tests = b.addTest(.{
-    //     .name = "pixman-test",
-    //     .root_source_file = b.path("src/main.zig"),
-    //     .target = target,
-    //     .optimize = optimize,
-    // });
-    // _ = try link(b, tests, target, optimize);
-
-    // const test_step = b.step("test", "Run tests");
-    // const tests_run = b.addRunArtifact(tests);
-    // test_step.dependOn(&tests_run.step);
-
-    // const hello_example = b.addExecutable(.{
-    //     .name = "hello",
-    //     .root_source_file = b.path("src/examples/hello.zig"),
-    //     .target = target,
-    //     .optimize = optimize,
-    // });
-    // const run_cmd = b.addRunArtifact(hello_example);    
-    // run_cmd.step.dependOn(b.getInstallStep());
-    // if (b.args) |args| {
-    //     run_cmd.addArgs(args);
-    // }
-    // const run_step = b.step("run", "Run the app");
-    // run_step.dependOn(&run_cmd.step);
-// }
-
-// pub fn link(
-//     b: *std.Build,
-//     step: *std.Build.Step.Compile,
-//     target: std.Build.ResolvedTarget,
-//     optimize: std.builtin.OptimizeMode,
-// ) !*std.Build.Step.Compile {
-//     const libuv = try buildLibuv(b, target, optimize);
-//     step.linkLibrary(libuv);
-//     step.addIncludePath(.{ .cwd_relative = include_path, });
-//     return libuv;
-// }
-
-pub fn buildLibuv(b: *std.Build,
+pub fn build_libuv(b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
 ) !*std.Build.Step.Compile {
