@@ -4,31 +4,98 @@ const std = @import("std");
 const root = "./vendor/libuv/";
 const include_path = root ++ "include";
 
-pub const pkg = std.build.Pkg{
-    .name = "libuv",
-    .source = .{ .path = thisDir() ++ "/src/main.zig" },
-};
+// pub const pkg = std.build.Pkg{
+//     .name = "libuv",
+//     .source = .{ .path = thisDir() ++ "/src/main.zig" },
+// };
 
-fn thisDir() []const u8 {
-    return std.fs.path.dirname(@src().file) orelse ".";
-}
+// fn thisDir() []const u8 {
+//     return std.fs.path.dirname(@src().file) orelse ".";
+// }
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const tests = b.addTest(.{
-        .name = "pixman-test",
+    const libuv_module = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
-    _ = try link(b, tests, target, optimize);
 
-    const test_step = b.step("test", "Run tests");
-    const tests_run = b.addRunArtifact(tests);
-    test_step.dependOn(&tests_run.step);
+    const example_hello_exe_module = b.createModule(.{
+        .root_source_file = b.path("src/examples/hello.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    example_hello_exe_module.addImport("hello", libuv_module);
+
+    const lib = try buildLibuv(b, target, optimize);
+
+    b.installArtifact(lib);
+
+    const exe = b.addExecutable(.{
+        .name = "example_hello",
+        .root_module = example_hello_exe_module,
+    });
+
+    b.installArtifact(exe);
+
+    const run_cmd = b.addRunArtifact(exe);
+
+    run_cmd.step.dependOn(b.getInstallStep());
+
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
+    }
+
+    const run_step = b.step("run", "Run the app");
+    run_step.dependOn(&run_cmd.step);
+
+    const lib_unit_tests = b.addTest(.{
+        .root_module = libuv_module,
+    });
+
+    const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
+
+    const exe_unit_tests = b.addTest(.{
+        .root_module = example_hello_exe_module,
+    });
+
+    const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
+
+    const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_lib_unit_tests.step);
+    test_step.dependOn(&run_exe_unit_tests.step);
 }
+
+    // const tests = b.addTest(.{
+    //     .name = "pixman-test",
+    //     .root_source_file = b.path("src/main.zig"),
+    //     .target = target,
+    //     .optimize = optimize,
+    // });
+    // _ = try link(b, tests, target, optimize);
+
+    // const test_step = b.step("test", "Run tests");
+    // const tests_run = b.addRunArtifact(tests);
+    // test_step.dependOn(&tests_run.step);
+
+    // const hello_example = b.addExecutable(.{
+    //     .name = "hello",
+    //     .root_source_file = b.path("src/examples/hello.zig"),
+    //     .target = target,
+    //     .optimize = optimize,
+    // });
+    // const run_cmd = b.addRunArtifact(hello_example);    
+    // run_cmd.step.dependOn(b.getInstallStep());
+    // if (b.args) |args| {
+    //     run_cmd.addArgs(args);
+    // }
+    // const run_step = b.step("run", "Run the app");
+    // run_step.dependOn(&run_cmd.step);
+// }
 
 pub fn link(
     b: *std.Build,
