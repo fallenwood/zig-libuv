@@ -19,6 +19,7 @@ pub fn build(b: *std.Build) !void {
     b.installArtifact(lib);
 
     _ = try build_exe(b, "hello", target, optimize, libuv_module, lib);
+    _ = try build_exe(b, "tcp_server", target, optimize, libuv_module, lib);
 
     const lib_unit_tests = b.addTest(.{
         .root_module = libuv_module,
@@ -80,7 +81,13 @@ fn build_exe(
         run_cmd.addArgs(args);
     }
 
-    const run_step = b.step("run", "Run the app");
+
+    var run_arr = std.ArrayList(u8).init(b.allocator);
+    defer run_arr.deinit();
+    try run_arr.appendSlice("run_");
+    try run_arr.appendSlice(name);
+
+    const run_step = b.step(run_arr.items, "Run the app");
 
     run_step.dependOn(&run_cmd.step);
 
