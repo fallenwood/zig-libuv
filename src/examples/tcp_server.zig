@@ -28,7 +28,15 @@ export fn echo_read(client: [*c]uv.c.uv_stream_t, nread: isize, buf: [*c]const u
   // var b: *uv.c.uv_buf_t = @ptrCast(buf);
   // b.len = @intCast(nread);
   // // buf.*.len = @intCast(nread);
-  _ = uv.c.uv_write(write_req, client, buf, 1, echo_write);
+  std.debug.print("echo read {}\n", .{buf.*.len});
+  const write_buf = allocator.create(uv.c.uv_buf_t) catch { unreachable; };
+  alloc_buffer(@ptrCast(client), @intCast(nread), write_buf);
+  var i: usize = 0;
+  while (i < nread) {
+    write_buf.base[i] = buf.*.base[i];
+    i+=1;
+  }
+  _ = uv.c.uv_write(write_req, client, write_buf, 1, echo_write);
 }
 
 export fn alloc_buffer(_: [*c]uv.c.uv_handle_t, suggested_size: usize, buf: [*c]uv.c.uv_buf_t) void {
